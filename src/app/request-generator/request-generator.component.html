@@ -1,0 +1,6 @@
+<ng-container *ngFor="let stream of streams; let i = index">
+  <div>
+    {{i + 1}}-ый стрим: {{stream | async}}
+  </div>
+</ng-container>
+<button (click)="getData()">Update</button>
