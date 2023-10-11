@@ -1,12 +1,10 @@
 import { Component } from '@angular/core';
-import { BehaviorSubject, catchError, delay, EMPTY, map, Observable, of, skip, Subject, Subscription, switchMap, takeUntil, tap, withLatestFrom } from "rxjs";
+import { catchError, delay, EMPTY, map, Observable, share, Subject, switchMap, takeUntil } from "rxjs";
 import { HttpClient } from '@angular/common/http';
 
 interface IRequestData {
   items: number[];
 }
-
-type ShowType = number | 'unset';
 
 @Component({
   selector: 'app-request-generator',
@@ -16,32 +14,31 @@ type ShowType = number | 'unset';
 export class RequestGeneratorComponent {
   private cancel$ = new Subject<void>();
   private request$ = new Subject<void>();
+  private stream = this.request$.pipe(
+    switchMap(() => {
+      return this.http.get<IRequestData>(this.apiUrl).pipe(
+        delay(this.delayTime),
+      );
+    }),
+    share()
+  );
 
   private streamsCount = 3;
   private delayTime = 500;
   private apiUrl = 'https://api.rand.by/v1/integer?count=1';
 
-  streams: BehaviorSubject<ShowType>[];
+  streams: Observable<number>[];
 
-  private contructStream(): BehaviorSubject<ShowType> {
-    return new BehaviorSubject<ShowType>('unset');
+  private contructStream(): Observable<number> {
+    return this.stream.pipe(
+      map((result: IRequestData) => result?.items[0]),
+      catchError(() => EMPTY),
+      takeUntil(this.cancel$)
+    );
   }
 
   constructor(private http: HttpClient) {
     this.streams = new Array(this.streamsCount).fill(this.contructStream());
-
-    this.request$.pipe(
-      switchMap(() => {
-        return this.http.get<IRequestData>(this.apiUrl).pipe(
-          delay(this.delayTime)
-        );
-      }),
-      tap((result: IRequestData) => {
-        this.streams.forEach(stream => stream.next(result?.items[0]));
-      }),
-      catchError(() => EMPTY),
-      takeUntil(this.cancel$)
-    ).subscribe();
   }
 
   getData() {
